@@ -8,7 +8,18 @@ options(stringsAsFactors = FALSE)
 
 # Postcode data is from here: http://download.geonames.org/export/zip/
 #get data about coordinates and post codes
-postCodeData = read.table('DE.txt', sep='\t', head=FALSE)
+postCodeData = read.table('DE.txt', sep='\t', head=FALSE, colClasses = c("character", 
+                                                                         "character", # postal_code - needs to be character, not a number
+                                                                         "character", 
+                                                                         "character", 
+                                                                         "character", 
+                                                                         "character", 
+                                                                         "character", 
+                                                                         "character", 
+                                                                         "character", 
+                                                                         "numeric", 
+                                                                         "numeric", 
+                                                                         "numeric"))
 
 colnames(postCodeData) = c("country_code", 
                            "postal_code", 
@@ -22,6 +33,7 @@ colnames(postCodeData) = c("country_code",
                            "latitude", 
                            "longitude", 
                            "accuracy")
+
 
 # There are multiple coordinates for the same postcode, simplify things by taking the average per unique postcode
 # To be more accurate, some sort of fuzzy string matching system would have to be set up.
