@@ -3,6 +3,8 @@ Visualizing-Growth-of-German-PV
 
 Code used for creating <a href="http://www.youtube.com/watch?v=XpvQNn0n_Qw">Time lapse of 860,000 photovoltaic systems installed across Germany</a>.
 
+Also see a <a href="https://www.youtube.com/watch?v=R0vbbwgGV70">similar example for the UK</a>, which was done by <a href="http://www3.imperial.ac.uk/people/j.keirstead">James Keirstead</a>.
+
 German postcode data is sourced from Geonames - http://download.geonames.org/export/zip/
 
 <a href="http://www.youtube.com/watch?v=XpvQNn0n_Qw"><img src="https://raw.github.com/cbdavis/Visualizing-Growth-of-German-PV/master/GermanPV.png"></a>
