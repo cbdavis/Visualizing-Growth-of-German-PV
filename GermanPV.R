@@ -2,12 +2,30 @@ library(reshape)
 library(XLConnect) #reads Excel files
 library(sqldf)
 
-# Should use the postcode data here: http://download.geonames.org/export/zip/
-
-#never ever ever convert strings to factors
+#never ever ever ever convert strings to factors
 options(stringsAsFactors = FALSE)
+
+
+# Postcode data is from here: http://download.geonames.org/export/zip/
 #get data about coordinates and post codes
-postCodeData = read.table('german-addresses.csv', sep='\t', head=TRUE)
+postCodeData = read.table('DE.txt', sep='\t', head=FALSE)
+
+colnames(postCodeData) = c("country_code", 
+                           "postal_code", 
+                           "place_name", 
+                           "admin_name1", 
+                           "admin_code1", 
+                           "admin_name2", 
+                           "admin_code2", 
+                           "admin_name3", 
+                           "admin_code3", 
+                           "latitude", 
+                           "longitude", 
+                           "accuracy")
+
+# There are multiple coordinates for the same postcode, simplify things by taking the average per unique postcode
+# To be more accurate, some sort of fuzzy string matching system would have to be set up.
+postCodeData = sqldf("select postal_code, avg(latitude) as lat, avg(longitude) as lon from postCodeData group by postal_code")
 
 # Links to data sources are at:
 # Current data
@@ -37,8 +55,11 @@ filesAndURLs["Meldungen_OktNov2011.xls"] = "http://www.bundesnetzagentur.de/Shar
 filesAndURLs["Meldungen_Dez2011.xls"] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/ArchivDatenMeldgn/Meldungen_Dez2011xls.xls?__blob=publicationFile&v=2"
 # January to December 2012
 filesAndURLs['Meldungen_JanDez2012.zip'] = 'http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/ArchivDatenMeldgn/Meldungen_JanDez2012xls.zip?__blob=publicationFile&v=2'
-# January to February 2013
-filesAndURLs['Meldungen_JanJuli2013.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldung_2013_01-07.xls?__blob=publicationFile&v=1"
+# January to December 2013
+filesAndURLs['Meldungen_JanDez2013.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldungen_2013_01-12.xls?__blob=publicationFile&v=1"
+# January 2014
+filesAndURLs['Meldungen_Jan2014.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldungen_2014_01.xls?__blob=publicationFile&v=1"
+
 
 pvData = data.frame()
 for (file in names(filesAndURLs)){
@@ -86,7 +107,14 @@ for (file in names(filesAndURLs)){
     
     # the headers in the worksheet change slightly over time, so we need to give them standard names
     colnames(worksheetData) = c("date", "postcode", "place", "state", "capacity")
-        
+
+    # remove rows with all NAs
+    worksheetData = worksheetData[complete.cases(worksheetData),]
+    
+    if (any(is.na(worksheetData$date))){
+      stop("something's gone horribly wrong")
+    }
+    
     # convert the dates to a standard format
     worksheetData$date = as.Date(worksheetData$date, format="%d.%m.%Y")
     
@@ -96,32 +124,9 @@ for (file in names(filesAndURLs)){
   }
 }
 
-pvData$address = paste(pvData$place, pvData$postcode, pvData$state, "Germany", sep=", ")
-# get rid of all spaces before commas, this messes up the matching
-pvData$address = gsub(" +,", ",", pvData$address)
-
-# remove duplicated addresses, just use the first value
-postCodeData = postCodeData[-which(duplicated(postCodeData$address)),]
-
-#merge this with data about the installations
-allData = merge(pvData, postCodeData, by.x =c('address'), by.y=c('address'), all.x=TRUE)
-
-# find the addresses that don't have coordinates yet
-#unfoundAddresses = unique(gsub(" ,", ",", gsub(" ,", ",", allData1$address[which(is.na(allData1$lat))])))
-# write.table(file="unfoundAddresses.txt", unfoundAddresses, row.names=FALSE)
-
-#remove bad values - this is about 13,570 of 538081 entries
-#locs = which(allData$lon > 120)
-#allData = allData[-locs,]
-
-#convert this from string to date
-#allData$date = as.Date(allData$date)
-
-# if there are any NA dates, remove those entries.  Not sure what are causing those
-if (any(is.na(allData$date))){
-  print(paste("Removing ", length(which(is.na(allData$date))), " NA dates"))
-  allData = allData[-which(is.na(allData$date)),]
-}
+#merge this with data about the locations of the postcodes
+# This takes a while
+allData = merge(pvData, postCodeData, by.x =c('postcode'), by.y=c('postal_code'), all.x=TRUE)
 
 #do something to plot by date
 dates = sort(unique(allData$date))
@@ -149,7 +154,7 @@ dynamicTransparency = minTransparency - ((minTransparency - maxTransparency) * c
 
 for(date in dates){
   #sum up capacity per date
-  data = sqldf(paste("select lat, lon, sum(capacity) as totalCapacity from allData where date <= '", date ,"' group by address", sep=""))
+  data = sqldf(paste("select lat, lon, sum(capacity) as totalCapacity from allData where date <= '", date ,"' group by lat, lon", sep=""))
   
   if(dim(data)[1] > 0){
     count = count + 1
