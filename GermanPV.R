@@ -1,4 +1,3 @@
-library(reshape)
 library(XLConnect) #reads Excel files
 library(sqldf)
 
@@ -190,21 +189,4 @@ for(date in dates){
     dev.off()
   }
 }
-
-sqldf("create index latIndex on allData(lat)")
-sqldf("create index lonIndex on allData(lon)")
-sqldf("create index postCodeIndex on allData(postcode)")
-
-# This loop is meant to create a data frame containing the cumulative capacity per date per post code
-# Run this instead of the code below if you just want to data, and don't want to render the images
-
-cumulativeCapacityPerPostCode = NULL
-for(date in dates){
-  print(as.Date(date, origin="1970-01-01"))
-  #sum up capacity per date
-  data = sqldf(paste("select lat, lon, sum(capacity) as totalCapacity, date from allData where date <= '", date ,"' group by lat, lon", sep=""))
-  cumulativeCapacityPerPostCode = rbind(cumulativeCapacityPerPostCode, data)
-}
-
-
 
