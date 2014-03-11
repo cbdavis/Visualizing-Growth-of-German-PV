@@ -4,7 +4,8 @@ library(sqldf)
 #never ever ever ever convert strings to factors
 options(stringsAsFactors = FALSE)
 
-
+#### TODO - make sure that your working directory is set to the same directory as this code ####
+#### In RStudio - Session -> Set Working Directory -> To Source File Location
 # Postcode data is from here: http://download.geonames.org/export/zip/
 #get data about coordinates and post codes
 postCodeData = read.table('DE.txt', sep='\t', head=FALSE, colClasses = c("character", 
@@ -138,6 +139,11 @@ for (file in names(filesAndURLs)){
 #merge this with data about the locations of the postcodes
 # This takes a while
 allData = merge(pvData, postCodeData, by.x =c('postcode'), by.y=c('postal_code'), all.x=TRUE)
+
+# write the data to file and zip it up
+write.csv(allData, file="PV_Capacity_Installed_by_PostCode_Date_and_Coordinates.csv", row.names=FALSE, quote=FALSE)
+zip("PV_Capacity_Installed_by_PostCode_Date_and_Coordinates.csv.zip", "PV_Capacity_Installed_by_PostCode_Date_and_Coordinates.csv")
+file.remove("PV_Capacity_Installed_by_PostCode_Date_and_Coordinates.csv")
 
 #do something to plot by date
 dates = sort(unique(allData$date))
