@@ -11,7 +11,5 @@ German postcode data is sourced from Geonames - http://download.geonames.org/exp
 
 Movie is rendered using mencoder
 <pre>
-opt="vbitrate=24000000:mbd=2:keyint=132:vqblur=1.0:cmp=2:subcmp=2:dia=2:mv0:last_pred=3"
-mencoder -ovc lavc -lavcopts vcodec=mpeg4:vpass=1:$opt -mf type=png:fps=20 -nosound -o /dev/null mf://0*.png
-mencoder -ovc lavc -lavcopts vcodec=mpeg4:vpass=2:$opt -mf type=png:fps=20 -nosound -o GermanPV.avi mf://0*.png
+avconv -r 20 -i %5d.png -b:v 8M -maxrate 8M -minrate 8M -bufsize 4M GermanPV.avi
 </pre>

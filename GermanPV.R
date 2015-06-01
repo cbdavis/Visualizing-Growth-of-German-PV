@@ -69,9 +69,12 @@ filesAndURLs["Meldungen_Dez2011.xls"] = "http://www.bundesnetzagentur.de/SharedD
 filesAndURLs['Meldungen_JanDez2012.zip'] = 'http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/ArchivDatenMeldgn/Meldungen_JanDez2012xls.zip?__blob=publicationFile&v=2'
 # January to December 2013
 filesAndURLs['Meldungen_JanDez2013.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldungen_2013_01-12.xls?__blob=publicationFile&v=1"
-# January 2014
-filesAndURLs['Meldungen_Jan2014.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldungen_2014_01.xls?__blob=publicationFile&v=1"
-
+# January to July 2014
+filesAndURLs['Meldungen_JanJuli2014.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/ArchivDatenMeldgn/Meldungen_JanJuli2014.xls?__blob=publicationFile&v=2"
+# August 2014 - March 2015
+filesAndURLs['Meldungen_Aug-Mrz2015.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldungen_Aug-Mrz2015.xls?__blob=publicationFile&v=1"
+# April 2015
+filesAndURLs['Meldungen_2015_04.xls'] = "http://www.bundesnetzagentur.de/SharedDocs/Downloads/DE/Sachgebiete/Energie/Unternehmen_Institutionen/ErneuerbareEnergien/Photovoltaik/Datenmeldungen/Meldungen_2015_04.xls?__blob=publicationFile&v=1"
 
 pvData = data.frame()
 for (file in names(filesAndURLs)){
@@ -83,10 +86,10 @@ for (file in names(filesAndURLs)){
       unzip(file)
     }
   }
-    
+  
   # If we have a zip file, assume that the xls file has the same name but different extension
   file = gsub(".zip", ".xls", file)
-
+  
   #read in the data
   # there's a sheet for every month
   
@@ -102,7 +105,7 @@ for (file in names(filesAndURLs)){
     
     startRow = 9
     # special cases with different start rows
-    if (sheet %in% c("Oktober 2012", "November 2012", "Dezember 2012", "Tabelle1") || grepl("2013", sheet)){
+    if (sheet %in% c("Oktober 2012", "November 2012", "Dezember 2012", "Tabelle1") || grepl("2013", sheet) || grepl("2014", sheet) || grepl("2015", sheet)){
       startRow = 11  
     }
     
@@ -112,14 +115,19 @@ for (file in names(filesAndURLs)){
                                           startCol = 1, 
                                           startRow = startRow, 
                                           endCol=0, endRow=0)  
-    
-    # only keep five columns 
-    # some of the ones October 2012 and later have "davon Installierte Nennleistung der geförderten Anlagen (kWp)"
-    worksheetData = worksheetData[,c(1:5)]
+
+    if (file %in% c("Meldungen_Aug-Mrz2015.xls", "Meldungen_2015_04.xls")){
+      # newer data actually has the street address - not used for this visualization
+      worksheetData = worksheetData[,c(1,3:5,7)]
+    } else {
+      # only keep five columns 
+      # some of the ones October 2012 and later have "davon Installierte Nennleistung der geförderten Anlagen (kWp)"
+      worksheetData = worksheetData[,c(1:5)]
+    }
     
     # the headers in the worksheet change slightly over time, so we need to give them standard names
     colnames(worksheetData) = c("date", "postcode", "place", "state", "capacity")
-
+    
     # remove rows with all NAs
     worksheetData = worksheetData[complete.cases(worksheetData),]
     
@@ -151,7 +159,7 @@ dates = sort(unique(allData$date))
 #figure out the amount of capacity installed per date
 capacityPerDate = sqldf("select date, sum(capacity) as capacitySum from allData group by date order by date")
 
-#make indices on the data
+#make indices on the date
 sqldf("create index dateIndex on allData(date)")
 
 #make a plot for each date
@@ -163,36 +171,41 @@ capacityCumulativeSum = cumsum(capacityPerDate$capacitySum)
 
 #do a dynamic transparency based on the cumulative amount of capacity installed
 #with this, things get dramatically lighter if lots of capacity is installed
+# This is an artistic hack - at the beginning you want to be able to spot small points
+# towards the end there's a lot of installed capacity and you want to be able to view the areas of high concentration
 minTransparency = 255
 maxTransparency = 120
 
 dynamicTransparency = minTransparency - ((minTransparency - maxTransparency) * capacityCumulativeSum / max(capacityCumulativeSum))
 #dynamicTransparency = seq(200, 50, length.out=length(dates))
 
-
-
 for(date in dates){
-  #sum up capacity per date
-  data = sqldf(paste("select lat, lon, sum(capacity) as totalCapacity from allData where date <= '", date ,"' group by lat, lon", sep=""))
+  count = count + 1  
+  print(count)
+  filename=paste(sprintf('%05d', count), ".png", sep="")
   
-  if(dim(data)[1] > 0){
-    count = count + 1
-    print(count)
-    filename=paste(sprintf('%05d', count), ".png", sep="")
-    #germany is about 850 km x 640 km
-    png(filename=filename, width=1080, height=1435, units="px", pointsize=18, bg="white", res=NA)
+  if (!file.exists(filename)){ # only render frame if missing
+    #sum up capacity per date
+    data = sqldf(paste("select lat, lon, sum(capacity) as totalCapacity from allData where date <= '", date ,"' group by lat, lon", sep=""))
     
-    par(bg="black", col="yellow", xaxt='n', yaxt='n', ann=FALSE, mar=c(0,0,15,0), pty="m", col.main="yellow", lwd=3, cex=0.1)
-    scalingFactor = 0.000002
-    radii = sqrt((data$totalCapacity * scalingFactor)/ pi)
+    if(dim(data)[1] > 0){
 
-    #draw lots of different size circles which indicate the installed capacity at the different locations
-    symbols(data$lon, data$lat, circles=radii, lwd=0.5, cex=0.1, inches=FALSE, fg=rgb(255,255,0,dynamicTransparency[count],maxColorValue=255), bg=rgb(255,255,0,dynamicTransparency[count],maxColorValue=255), xlim=c(6, 15), ylim=c(47,55), frame.plot=FALSE)
-    title(main=paste(as.Date(date, origin="1970-01-01"), 
-                "   -  ", 
-                sprintf('%5.1f', sum(data$totalCapacity) / 1000), 
-                " MW", sep=""), cex.main=20, lwd=20, mex=20, cex=20)
-    dev.off()
+      #germany is about 850 km x 640 km
+      png(filename=filename, width=1080, height=1435, units="px", pointsize=18, bg="white", res=NA)
+      
+      par(bg="black", col="yellow", xaxt='n', yaxt='n', ann=FALSE, mar=c(0,0,15,0), pty="m", col.main="yellow", lwd=3, cex=0.1)
+      scalingFactor = 0.000002
+      radii = sqrt((data$totalCapacity * scalingFactor)/ pi)
+      
+      #draw lots of different size circles which indicate the installed capacity at the different locations
+      symbols(data$lon, data$lat, circles=radii, lwd=0.5, cex=0.1, inches=FALSE, fg=rgb(255,255,0,dynamicTransparency[count],maxColorValue=255), bg=rgb(255,255,0,dynamicTransparency[count],maxColorValue=255), xlim=c(6, 15), ylim=c(47,55), frame.plot=FALSE)
+      title(main=paste(as.Date(date, origin="1970-01-01"), 
+                       "   -  ", 
+                       sprintf('%5.1f', sum(data$totalCapacity) / 1000), 
+                       " MW", sep=""), cex.main=20, lwd=20, mex=20, cex=20)
+      dev.off()
+
+    }
   }
 }
 
