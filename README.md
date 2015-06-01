@@ -9,7 +9,7 @@ German postcode data is sourced from Geonames - http://download.geonames.org/exp
 
 <a href="http://www.youtube.com/watch?v=XpvQNn0n_Qw"><img src="https://raw.github.com/cbdavis/Visualizing-Growth-of-German-PV/master/GermanPV.png"></a>
 
-Movie is rendered using mencoder
+Movie is rendered using avconv
 <pre>
 avconv -r 20 -i %5d.png -b:v 8M -maxrate 8M -minrate 8M -bufsize 4M GermanPV.avi
 </pre>
